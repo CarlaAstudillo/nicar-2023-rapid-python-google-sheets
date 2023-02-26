@@ -1,0 +1,10 @@
+# ignore all logs
+*.log
+
+# ignore all json credentials
+*.json
+nicar-analysis-example-credentials.json
+
+# OS generated files
+.DS_Store
+.DS_Store?
