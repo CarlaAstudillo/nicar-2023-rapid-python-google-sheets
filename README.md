@@ -1,4 +1,4 @@
-# NICAR 2023: Share Rapid Python analysis with Google Sheets
+# NICAR 2023: Rapid Python analysis to Google Sheets
 
 This is a repository for an example on how to quickly analyze recurringly released datasets and create Google Sheets for reporters. Here is a link to the Google Slides.
 
@@ -15,3 +15,5 @@ Create a new project and enable the API.
 
 
 ## Add it to notebook
+
+## Add the gmail to the Google Drive

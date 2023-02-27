@@ -3,7 +3,7 @@
 
 # ignore all json credentials
 *.json
-nicar-analysis-example-credentials.json
+.nicar-analysis-example-credentials.json
 
 # OS generated files
 .DS_Store
