@@ -53,7 +53,7 @@ Next, create the service account keys to your newly created service account. Sel
 }
 ```
 
-Give it a good name and save it as a hidden file somewhere in your project where you will be able to access. These are your credentials. Also, pay special attention to the `client_email` in your JSON. That's the email you're going to be granting access to your Google directories and sheets. Save that somewhere.
+Give it a good name and save it as a hidden file somewhere in the same level as your jupyter notebook where you will be able to access. These are your credentials. Also, pay special attention to the `client_email` in your JSON. That's the email you're going to be granting access to your Google directories and sheets. Save that somewhere.
 
 For more detailed instructions for this step, go [here](https://cloud.google.com/iam/docs/creating-managing-service-account-keys).
 
@@ -63,13 +63,123 @@ Go to the [Google Cloud console API Library](https://console.cloud.google.com/ap
 
 For more detailed instructions and information on adding APIs, go [here](https://cloud.google.com/apis/docs/getting-started)
 
-## Create your notebook
+## Add the credentials your notebook
+
+After creating and saving your JSON credentials, go to the [`globals.ipynb`](globals.ipynb) Jupyter notebook and change the name of the JSON credentials to the name that you gave your credentials. This is found in the Google Sheets permissions cell.
+
+```
+creds = ServiceAccountCredentials.from_json_keyfile_name('.[CHANGE this name file].json', scope)
+
+```
+
+## Do your analysis and create an aggregate dataframe
+
+In `Rapid Python analysis to Google Sheets for reporters EXAMPLE.ipynb`, I've provided an example of some analysis that I did with a dataset that I won't go into much detail. It all culminates with me creating a dataframe with some aggregate numbers that I want to add to my first tab in my Google Sheet. 
+
+```
+# This is where we put the fields that we have to include
+agg_columns = ['texas_growth', 'texas_growth_pct_change', 'county_most_pct_change',
+               'county_most_num_change', 'number_lost_population']
+
+# This is the data
+agg_data = [comma_format(TX_population_change), pct_format(TX_pop_pct_change),county_most_pct_change['county'].iat[0], county_most_num_change['county'].iat[0], number_lost_population]
+
+# This is where I create the dataframe for the aggregate numbers
+data_to_add = {'Criteria': agg_columns, 'Totals': agg_data}
+
+df_agg = pd.DataFrame(data_to_add)
+```
+
+Afterward, you can add the aggregate dataframe as a hidden sheet called `aggregate_hidden` by adding it here. You can also add other dataframes as other tabs, including the raw data.
+
+```
+data_frames_to_add = [{
+        'file_data': df_agg,
+        'sheet': 'aggregate_hidden',
+        'hidden': 'true',
+    },
+    {
+        'file_data': no_small_counties.head(10),
+        'sheet': 'top_10_counties_over_10000',
+        'hidden': 'false',
+    },
+    {
+        'file_data': df_merge_short.sort_values(by='pop_change_pct', ascending=False),
+        'sheet': 'raw_data',
+        'hidden': 'false',
+    }]
+```
 
 
-Add credentials
+## Create a folder and template in Google Drive
+
+In your Google Drive with the account that you used to set up Google Cloud Console service account, create a folder and then create a template with a tab called `aggregate` and a tab called `aggregate_hidden`. In the `aggregate`, you can decorate however you want the Google Sheet to show up for your reporters. However, in the cells where you want numbers to show up, add a formula so the appropriate number in `aggregate_hidden` shows up in the `aggregate` tab. You can see an example [here](https://docs.google.com/spreadsheets/d/1DBcNmB0x1zp3neEFjs1A7ADGIse3tgrZe5oWCibZfOs/).
 
 
-## Create a directory and template in Google Drive
+## Connect the Google Drive folder and template url
 
-Add the gmail
+In `Rapid Python analysis to Google Sheets for reporters EXAMPLE.ipynb`, there's a cell near the top where you can fill out several variables. Here you can give your new Google Sheet a name. Also, get the folder ID for the folder where you're going to be creating the Google Sheet and put it in `google_folderID`. Then, get the Google Sheet URL for the template sheet you just created and put it in `source_gsheet_url`.
+
+```
+## Google Sheet Name
+
+google_sheet_name = "Texas Census analysis (2016 5-year estimate) and (2021 5-year estimate)"
+
+## Google Sheet Directory ID
+
+google_folderID = 'TKTKTKTKTK'
+
+
+## Google Sheet url for the template
+
+source_gsheet_url = 'https://docs.google.com/spreadsheets/d/TKTKTKTKTKTKTK/'
+```
+
+## Run the notebook
+
+Hopefully, the notebook should run and create a new spreadsheet with your analysis in a nicely formatted Google Sheet based on the template you just made. 
+
+A few things that I want to point out that make it work:
+
+The function `createNewSheetIfNotExist` which you can find in [`globals.ipynb`](globals.ipynb) basically goes into your Google Drive folder and looks for a Google Sheet with the name that you specified in `google_sheet_name`. If the Google Sheet with that specific name doesn't exist, it will create a brand new Google Sheet. If it does exist, it will just get the existing one.
+
+The notebook will then open your newly created or already existed Google Sheet and loop through `data_frames_to_add` and uploads each dataframe to a different tab in the Google Sheet. If it already exists, it will erase all of the existing data before adding it again. If in `data_frames_to_add` the key "hidden" has a value of "true" like in the `aggregate_hidden`, it will hide it.
+
+```
+# This checks to see if the worksheet exists. If not, it will create a new one.
+for file in data_frames_to_add:
+    print('Uploading the ' + file['sheet'] + ' file to its Google spreadsheet')
+    #If the tab is already in the worksheet, update it. If not, add a new tab
+    data_sheet = data_workbook.worksheet(file['sheet']) if file['sheet'] in worksheets_list else data_workbook.add_worksheet(file['sheet'], rows=1000, cols=40, index=None)
+    #Clears any existing data in the existing datasheet
+    data_sheet.clear()
+    # Add the data to tab
+    set_with_dataframe(data_sheet, file['file_data'])
+    if file['hidden'] == 'true':
+        # Hide this tab if it says in needs to be hidden
+        body = {'requests': [{
+            'updateSheetProperties': {
+                'properties': {
+                    'sheetId': data_sheet.id,
+                    'hidden': True
+                },
+                'fields': 'hidden'
+            }
+        }]}
+        data_workbook.batch_update(body=body)
+```
+
+Finally, the notebook then checks all of the tabs in your Google Sheet.
+
+```
+# First, check to see if tabs already exist. Need to create a list of tabs in this particular worksheet
+worksheet_objs = data_workbook.worksheets()
+worksheets_list = []
+
+for worksheet in worksheet_objs:
+    worksheets_list.append(worksheet.title)
+```
+
+If there's a sole `Sheet1` tab, that means that this is a brand new Google Sheet and so it will need to get Google Sheet template that you created and copy the first tab (along with all of the formulas and formatting) to your newly created Google Sheet. It will then rename it `aggregate` and rearrange it so it's the first tab you see and erase `Sheet1`.
+
 
