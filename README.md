@@ -182,4 +182,25 @@ for worksheet in worksheet_objs:
 
 If there's a sole `Sheet1` tab, that means that this is a brand new Google Sheet and so it will need to get Google Sheet template that you created and copy the first tab (along with all of the formulas and formatting) to your newly created Google Sheet. It will then rename it `aggregate` and rearrange it so it's the first tab you see and erase `Sheet1`.
 
+```
+# This finds if this is a new Google Sheet that was just created and copies the template Google Sheet `aggregate` section to the new Google Sheet.
+# Then it renames that new tab aggregate, erases the existing 'Sheet1' and reorders 'aggregate' to be the first tab shown
+if 'Sheet1' in worksheets_list:
+    source_worksheet_name = 'aggregate'
+    dest_gsheet_url = new_sheet['id']
+
+    templateWS = client.open_by_url(source_gsheet_url).worksheet(source_worksheet_name)
+    target_ws_props = templateWS.copy_to(dest_gsheet_url)
+    target_ws = gspread.Worksheet(client.open_by_key(dest_gsheet_url), target_ws_props)
+    target_ws.update_title("aggregate")
+
+    created_sheet = client.open_by_key(dest_gsheet_url)
+
+    sheet_to_be_deleted = created_sheet.worksheet('Sheet1')
+
+    created_sheet.del_worksheet(sheet_to_be_deleted)
+    created_sheet.reorder_worksheets([created_sheet.worksheet('aggregate'), created_sheet.worksheet('aggregate_hidden')
+                                        , created_sheet.worksheet('top_10_counties_over_10000'), created_sheet.worksheet('raw_data')])
+```
+
 
